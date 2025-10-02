@@ -48,7 +48,7 @@ Nboxie is a web app that helps creators automatically find, extract, and organiz
    # Google OAuth
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
-   GOOGLE_REDIRECT_URI=https://your-domain.com/api/auth/google/callback
+   GOOGLE_REDIRECT_URI=https://your-domain.com/api/auth/callback/google
 
    # Chrome Extension OAuth Client
    CHROME_EXTENSION_CLIENT_ID=your-chrome-extension-client-id

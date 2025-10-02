@@ -24,8 +24,8 @@ Nboxie is a web app that helps creators automatically find, extract, and organiz
 
 1. Clone the repo
    ```bash
-   git clone https://github.com/your-org/nboxie.git
-   cd nboxie
+   git clone https://github.com/Gloriousnoir/nboxie-gmail-scanner.git
+   cd nboxie-gmail-scanner
    ```
 
 2. Create `.env` at the project root and add:

@@ -272,7 +272,7 @@ export class GmailScanner {
     }
     // Check for Sponsorship indicators
     else if (this.regexPatterns.sponsorship.test(content)) {
-      type = 'Sponsorship';
+      type = 'Brand Deal';
       confidence = compensation ? 0.95 : 0.8;
     }
     // Fallback classification based on compensation

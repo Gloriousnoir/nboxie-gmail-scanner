@@ -9,7 +9,7 @@ interface DealCardProps {
 }
 
 const DealCard: React.FC<DealCardProps> = ({ deal, onStatusChange, onDelete }) => {
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case 'New': return 'bg-blue-100 text-blue-800';
       case 'In Progress': return 'bg-yellow-100 text-yellow-800';
@@ -20,7 +20,7 @@ const DealCard: React.FC<DealCardProps> = ({ deal, onStatusChange, onDelete }) =
     }
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeColor = (type?: string) => {
     switch (type) {
       case 'PR Gift': return 'bg-purple-100 text-purple-800';
       case 'UGC': return 'bg-indigo-100 text-indigo-800';
@@ -30,7 +30,8 @@ const DealCard: React.FC<DealCardProps> = ({ deal, onStatusChange, onDelete }) =
     }
   };
 
-  const getConfidenceColor = (confidence: number) => {
+  const getConfidenceColor = (confidence?: number) => {
+    if (!confidence) return 'text-gray-600';
     if (confidence >= 0.9) return 'text-green-600';
     if (confidence >= 0.6) return 'text-yellow-600';
     return 'text-red-600';
@@ -42,10 +43,10 @@ const DealCard: React.FC<DealCardProps> = ({ deal, onStatusChange, onDelete }) =
         <h3 className="text-lg font-semibold text-gray-900">{deal.subject}</h3>
         <div className="flex gap-2">
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(deal.status)}`}>
-            {deal.status}
+            {deal.status || 'Unknown'}
           </span>
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(deal.type)}`}>
-            {deal.type}
+            {deal.type || 'Unknown'}
           </span>
         </div>
       </div>
@@ -60,20 +61,16 @@ const DealCard: React.FC<DealCardProps> = ({ deal, onStatusChange, onDelete }) =
           <div className="flex items-center">
             <span className="text-sm font-medium text-gray-600 w-20">Value:</span>
             <span className="text-sm text-gray-900 font-semibold">
-              ${deal.compensation.toLocaleString()}
+              {deal.compensation}
             </span>
           </div>
         )}
 
-        {deal.deliverables.length > 0 && (
+        {deal.deliverables && (
           <div className="flex items-start">
             <span className="text-sm font-medium text-gray-600 w-20">Deliverables:</span>
             <div className="text-sm text-gray-900">
-              {deal.deliverables.map((deliverable, index) => (
-                <span key={index} className="inline-block bg-gray-100 rounded px-2 py-1 mr-1 mb-1">
-                  {deliverable}
-                </span>
-              ))}
+              {deal.deliverables}
             </div>
           </div>
         )}
@@ -95,7 +92,7 @@ const DealCard: React.FC<DealCardProps> = ({ deal, onStatusChange, onDelete }) =
         <div className="flex items-center">
           <span className="text-sm font-medium text-gray-600 w-20">Confidence:</span>
           <span className={`text-sm font-semibold ${getConfidenceColor(deal.confidence)}`}>
-            {Math.round(deal.confidence * 100)}%
+            {deal.confidence ? Math.round(deal.confidence * 100) : 0}%
           </span>
         </div>
       </div>
@@ -103,7 +100,7 @@ const DealCard: React.FC<DealCardProps> = ({ deal, onStatusChange, onDelete }) =
       <div className="flex justify-between items-center">
         <div className="flex gap-2">
           <select
-            value={deal.status}
+            value={deal.status || 'New'}
             onChange={(e) => onStatusChange(deal.id, e.target.value)}
             className="text-sm border border-gray-300 rounded px-2 py-1"
           >

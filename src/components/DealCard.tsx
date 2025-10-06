@@ -22,7 +22,7 @@ const DealCard: React.FC<DealCardProps> = ({ deal, onStatusChange, onDelete }) =
 
   const getTypeColor = (type?: string) => {
     switch (type) {
-      case 'PR Gift': return 'bg-purple-100 text-purple-800';
+      case 'PR/Gifting': return 'bg-purple-100 text-purple-800';
       case 'UGC': return 'bg-indigo-100 text-indigo-800';
       case 'Brand Deal': return 'bg-green-100 text-green-800';
       case 'Sponsorship': return 'bg-blue-100 text-blue-800';

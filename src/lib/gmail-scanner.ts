@@ -257,7 +257,7 @@ export class GmailScanner {
 
     // Check for PR Gift indicators
     if (this.regexPatterns.prGift.test(content)) {
-      type = 'PR Gift';
+      type = 'PR/Gifting';
       confidence = 0.9;
     }
     // Check for UGC indicators

@@ -14,19 +14,32 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('Auth state changed:', user ? user.email : 'no user');
       setUser(user);
-      if (user) {
-        fetchDeals();
-      }
     });
 
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      console.log('User available, fetching deals for:', user.email);
+      fetchDeals();
+    }
+  }, [user]);
+
   const fetchDeals = async () => {
     try {
       setLoading(true);
-      const token = await user?.getIdToken();
+      
+      if (!user) {
+        console.log('No user available for fetchDeals');
+        setDeals([]);
+        return;
+      }
+      
+      const token = await user.getIdToken();
+      console.log('Fetching deals with token:', token ? 'present' : 'missing');
       
       const response = await fetch('/api/deals', {
         headers: {
@@ -34,11 +47,16 @@ const Dashboard: React.FC = () => {
         },
       });
       
+      console.log('Deals API response status:', response.status);
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Deals API error:', errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('Deals API data:', data);
       setDeals(data.deals || []);
     } catch (error) {
       console.error('Error fetching deals:', error);

@@ -3,13 +3,24 @@ import { GmailMessage, ParsedContent, DealType, RegexPatterns } from '@/types';
 
 export class GmailScanner {
   private gmail: any;
+  private oauth2Client: any;
   private regexPatterns: RegexPatterns;
 
-  constructor(accessToken: string) {
-    const auth = new google.auth.OAuth2();
-    auth.setCredentials({ access_token: accessToken });
+  constructor(accessToken: string, refreshToken?: string) {
+    // Initialize OAuth2 client with proper credentials
+    this.oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+
+    // Set credentials with access token
+    this.oauth2Client.setCredentials({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
     
-    this.gmail = google.gmail({ version: 'v1', auth });
+    this.gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
     
     // Initialize regex patterns for content extraction
     this.regexPatterns = {
@@ -25,8 +36,36 @@ export class GmailScanner {
   }
 
   /**
-   * Scan Gmail inbox for deals and opportunities
+   * Make authenticated Gmail API call with retry logic
    */
+  private async makeGmailCall<T>(apiCall: () => Promise<T>): Promise<T> {
+    try {
+      return await apiCall();
+    } catch (error: any) {
+      if (error.code === 401 || error.message?.includes('Invalid Credentials')) {
+        console.error('Gmail API authentication failed:', error);
+        throw new Error('Gmail authentication expired. Please sign in again.');
+      }
+      throw error;
+    }
+  }
+  /**
+   * Test Gmail API connection
+   */
+  async testConnection(): Promise<any> {
+    try {
+      const response = await this.makeGmailCall(() =>
+        this.gmail.users.getProfile({ userId: 'me' })
+      ) as any;
+      
+      console.log('Gmail profile:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Gmail API test failed:', error);
+      throw new Error(`Gmail API test failed: ${error.message || 'Unknown error'}`);
+    }
+  }
+
   async scanInbox(options: {
     maxResults?: number;
     query?: string;
@@ -39,35 +78,49 @@ export class GmailScanner {
     } = options;
 
     try {
-      const response = await this.gmail.users.messages.list({
-        userId: 'me',
-        maxResults,
-        q: query,
-        includeSpamTrash,
-      });
+      console.log(`Scanning Gmail with query: "${query}", maxResults: ${maxResults}`);
+      
+      const response = await this.makeGmailCall(() => 
+        this.gmail.users.messages.list({
+          userId: 'me',
+          maxResults,
+          q: query,
+          includeSpamTrash,
+        })
+      ) as any;
 
       const messages = response.data.messages || [];
+      console.log(`Found ${messages.length} messages to process`);
+
       const detailedMessages: GmailMessage[] = [];
 
       // Process messages in batches to avoid rate limits
       const batchSize = 20;
       for (let i = 0; i < messages.length; i += batchSize) {
         const batch = messages.slice(i, i + batchSize);
+        console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(messages.length/batchSize)}`);
+        
         const batchPromises = batch.map((msg: any) => this.getMessageDetails(msg.id));
         
         try {
           const batchResults = await Promise.all(batchPromises);
-          detailedMessages.push(...batchResults.filter((msg: any) => msg !== null));
+          const validMessages = batchResults.filter((msg: any) => msg !== null);
+          detailedMessages.push(...validMessages);
+          console.log(`Batch processed: ${validMessages.length}/${batch.length} messages valid`);
         } catch (error) {
           console.error(`Error processing batch ${i}-${i + batchSize}:`, error);
           // Continue with next batch
         }
       }
 
+      console.log(`Scan complete: ${detailedMessages.length} messages processed`);
       return detailedMessages;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error scanning inbox:', error);
-      throw error;
+      if (error.message?.includes('Authentication expired')) {
+        throw new Error('Authentication expired. Please sign in again.');
+      }
+      throw new Error(`Gmail scan failed: ${error.message || 'Unknown error'}`);
     }
   }
 
@@ -76,11 +129,13 @@ export class GmailScanner {
    */
   private async getMessageDetails(messageId: string): Promise<GmailMessage | null> {
     try {
-      const response = await this.gmail.users.messages.get({
-        userId: 'me',
-        id: messageId,
-        format: 'full',
-      });
+      const response = await this.makeGmailCall(() =>
+        this.gmail.users.messages.get({
+          userId: 'me',
+          id: messageId,
+          format: 'full',
+        })
+      ) as any;
 
       const message = response.data;
       const headers = message.payload.headers;
@@ -101,7 +156,7 @@ export class GmailScanner {
         body,
         labels: message.labelIds || [],
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error getting message details for ${messageId}:`, error);
       return null;
     }
@@ -113,19 +168,43 @@ export class GmailScanner {
   private extractBody(payload: any): string {
     let body = '';
     
+    // Handle simple text/plain messages
     if (payload.body && payload.body.data) {
-      body = Buffer.from(payload.body.data, 'base64').toString();
-    } else if (payload.parts) {
+      try {
+        body = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+      } catch (error) {
+        console.warn('Failed to decode simple body:', error);
+      }
+    } 
+    // Handle multipart messages
+    else if (payload.parts) {
       for (const part of payload.parts) {
+        // Prefer text/plain over text/html
         if (part.mimeType === 'text/plain' && part.body && part.body.data) {
-          body += Buffer.from(part.body.data, 'base64').toString();
-        } else if (part.parts) {
+          try {
+            body += Buffer.from(part.body.data, 'base64').toString('utf-8');
+          } catch (error) {
+            console.warn('Failed to decode text/plain part:', error);
+          }
+        } 
+        // Fallback to text/html if no plain text
+        else if (part.mimeType === 'text/html' && part.body && part.body.data && !body) {
+          try {
+            const htmlBody = Buffer.from(part.body.data, 'base64').toString('utf-8');
+            // Simple HTML tag removal (basic implementation)
+            body = htmlBody.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+          } catch (error) {
+            console.warn('Failed to decode text/html part:', error);
+          }
+        }
+        // Recursively handle nested parts
+        else if (part.parts) {
           body += this.extractBody(part);
         }
       }
     }
     
-    return body;
+    return body.trim();
   }
 
   /**

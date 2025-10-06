@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { adminDb } from '@/lib/firebase-admin';
+import { getAuth, adminDb } from '@/lib/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,10 +7,19 @@ export async function PUT(req: NextRequest, { params }: { params: { dealId: stri
   const { dealId } = params;
 
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    let decodedToken;
+    
+    try {
+      decodedToken = await getAuth().verifyIdToken(token);
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     const { status } = await req.json();
@@ -43,10 +50,19 @@ export async function DELETE(req: NextRequest, { params }: { params: { dealId: s
   const { dealId } = params;
 
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.email) {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    let decodedToken;
+    
+    try {
+      decodedToken = await getAuth().verifyIdToken(token);
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     await adminDb.collection('deals').doc(dealId).delete();

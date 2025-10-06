@@ -12,23 +12,27 @@ export interface User {
 export interface Deal {
   id: string;
   userId: string;
-  messageIds: string[];
+  messageIds?: string[];
   subject: string;
   brand: string;
-  compensation?: number;
-  deliverables: string[];
+  compensation?: string;
+  deliverables?: string;
   deadline?: string;
   paymentTerms?: string;
   type: DealType;
-  confidence: number;
-  contentHash: string;
-  status: DealStatus;
-  createdAt: Date;
-  updatedAt: Date;
+  confidence?: number;
+  contentHash?: string;
+  status?: DealStatus;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+  body?: string;
+  messageId?: string;
+  reason?: string;
+  source?: string;
 }
 
-export type DealType = 'PR Gift' | 'UGC' | 'Brand Deal' | 'Sponsorship' | 'Unknown';
-export type DealStatus = 'New' | 'In Progress' | 'Completed' | 'Declined' | 'Archived';
+export type DealType = 'Brand Deal' | 'UGC' | 'PR/Gifting' | 'None' | 'Unknown';
+export type DealStatus = 'New' | 'Replied' | 'Ignored' | 'Booked' | 'In Progress' | 'Completed' | 'Declined' | 'Archived';
 
 export interface GmailMessage {
   id: string;
